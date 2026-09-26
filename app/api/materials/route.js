@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
+import { put, del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import fs from "fs/promises";
-import path from "path";
 
 export async function GET(request) {
   const schoolId = Number(
@@ -83,7 +82,10 @@ export async function GET(request) {
 
       if (!rows.length) {
         return NextResponse.json(
-          { message: "Materi tidak ditemukan", data: null },
+          {
+            message: "Materi tidak ditemukan",
+            data: null,
+          },
           { status: 404 },
         );
       }
@@ -154,57 +156,109 @@ export async function GET(request) {
 
 export async function POST(request) {
   const session = await getSession();
-  if (!session)
+
+  if (!session) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  if (session.role !== "admin")
+  }
+
+  if (session.role !== "admin") {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const schoolId = Number(
       request.cookies.get("schoolhub_school_id")?.value || 1,
     );
+
     const form = await request.formData();
-    const judul = String(form.get("judul") || "").trim(),
-      deskripsi = String(form.get("deskripsi") || "").trim(),
-      class_id = Number(form.get("class_id")),
-      file = form.get("file");
-    if (!judul || !class_id)
+
+    const judul = String(form.get("judul") || "").trim();
+    const deskripsi = String(form.get("deskripsi") || "").trim();
+    const class_id = Number(form.get("class_id"));
+    const file = form.get("file");
+
+    if (!judul || !class_id) {
       return NextResponse.json(
         { message: "Judul dan kelas wajib diisi" },
         { status: 400 },
       );
+    }
+
+    // =========================
+    // CEK KELAS GURU
+    // =========================
     const [owned] = await db.query(
-      "SELECT c.id_class FROM classes c JOIN teacher_classes tc ON tc.class_id=c.id_class WHERE tc.teacher_id=? AND c.id_class=? AND c.school_id=?",
+      `
+      SELECT c.id_class
+      FROM classes c
+      JOIN teacher_classes tc
+        ON tc.class_id = c.id_class
+      WHERE tc.teacher_id = ?
+        AND c.id_class = ?
+        AND c.school_id = ?
+      `,
       [session.id_user, class_id, schoolId],
     );
-    if (!owned.length)
+
+    if (!owned.length) {
       return NextResponse.json(
         { message: "Kelas bukan kelas yang kamu ampu" },
         { status: 403 },
       );
-    let file_name = null,
-      file_type = null,
-      file_url = null;
+    }
+
+    let file_name = null;
+    let file_type = null;
+    let file_url = null;
+
+    // =========================
+    // UPLOAD FILE KE VERCEL BLOB
+    // =========================
     if (file && typeof file.arrayBuffer === "function" && file.size > 0) {
-      if (file.size > 30 * 1024 * 1024)
+      // Maksimal 30 MB
+      if (file.size > 30 * 1024 * 1024) {
         return NextResponse.json(
           { message: "Ukuran file maksimal 30 MB" },
           { status: 400 },
         );
-      const safe = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_"),
-        unique = `${Date.now()}-${safe}`;
-      const dir = path.join(process.cwd(), "public", "uploads", "materials");
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(
-        path.join(dir, unique),
-        Buffer.from(await file.arrayBuffer()),
-      );
-      file_name = file.name;
-      file_type =
-        path.extname(file.name).replace(".", "").toUpperCase() || "FILE";
-      file_url = `/uploads/materials/${unique}`;
+      }
+
+      const originalName = String(file.name || "file");
+
+      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      const uniqueName = `${Date.now()}-${safeName}`;
+
+      const blob = await put(`materials/${uniqueName}`, file, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType: file.type || undefined,
+      });
+
+      file_name = originalName;
+
+      file_type = originalName.split(".").pop()?.toUpperCase() || "FILE";
+
+      file_url = blob.url;
     }
+
+    // =========================
+    // SIMPAN DATA KE MYSQL
+    // =========================
     const [result] = await db.query(
-      `INSERT INTO materials (teacher_id,class_id,judul,deskripsi,file_name,file_type,file_url) VALUES (?,?,?,?,?,?,?)`,
+      `
+      INSERT INTO materials
+      (
+        teacher_id,
+        class_id,
+        judul,
+        deskripsi,
+        file_name,
+        file_type,
+        file_url
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
       [
         session.id_user,
         class_id,
@@ -215,8 +269,13 @@ export async function POST(request) {
         file_url,
       ],
     );
+
     return NextResponse.json(
-      { message: "Materi berhasil ditambahkan", id_material: result.insertId },
+      {
+        message: "Materi berhasil ditambahkan",
+        id_material: result.insertId,
+        file_url,
+      },
       { status: 201 },
     );
   } catch (e) {
@@ -234,34 +293,71 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   const session = await getSession();
-  if (!session)
+
+  if (!session) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  if (session.role !== "admin")
+  }
+
+  if (session.role !== "admin") {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const id = Number(new URL(request.url).searchParams.get("id"));
-    const [rows] = await db.query(
-      "SELECT m.file_url FROM materials m JOIN classes c ON c.id_class=m.class_id JOIN teacher_classes tc ON tc.class_id=m.class_id AND tc.teacher_id=? WHERE m.id_material=? AND c.school_id=?",
-      [
-        session.id_user,
-        id,
-        Number(request.cookies.get("schoolhub_school_id")?.value || 1),
-      ],
+
+    const schoolId = Number(
+      request.cookies.get("schoolhub_school_id")?.value || 1,
     );
-    if (!rows.length)
+
+    const [rows] = await db.query(
+      `
+      SELECT m.file_url
+      FROM materials m
+      JOIN classes c
+        ON c.id_class = m.class_id
+      JOIN teacher_classes tc
+        ON tc.class_id = m.class_id
+       AND tc.teacher_id = ?
+      WHERE m.id_material = ?
+        AND c.school_id = ?
+      `,
+      [session.id_user, id, schoolId],
+    );
+
+    if (!rows.length) {
       return NextResponse.json(
         { message: "Materi tidak ditemukan" },
         { status: 404 },
       );
-    if (rows[0].file_url?.startsWith("/uploads/"))
+    }
+
+    // =========================
+    // HAPUS FILE DARI VERCEL BLOB
+    // =========================
+    if (rows[0].file_url) {
       try {
-        await fs.unlink(path.join(process.cwd(), "public", rows[0].file_url));
-      } catch {}
-    await db.query("DELETE FROM materials WHERE id_material=?", [id]);
-    return NextResponse.json({ message: "Materi berhasil dihapus" });
+        await del(rows[0].file_url);
+      } catch (blobError) {
+        console.error("Gagal menghapus file Blob:", blobError);
+      }
+    }
+
+    // =========================
+    // HAPUS DATA MYSQL
+    // =========================
+    await db.query("DELETE FROM materials WHERE id_material = ?", [id]);
+
+    return NextResponse.json({
+      message: "Materi berhasil dihapus",
+    });
   } catch (e) {
+    console.error("DELETE /api/materials ERROR:", e);
+
     return NextResponse.json(
-      { message: "Gagal menghapus materi", error: e.message },
+      {
+        message: "Gagal menghapus materi",
+        error: e?.message || String(e),
+      },
       { status: 500 },
     );
   }
