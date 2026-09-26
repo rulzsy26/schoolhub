@@ -1,0 +1,407 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy: #102a72;
+  --blue: #1769ff;
+  --line: #dce9f8;
+  --bg: #f7fbff;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #14245b;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+input {
+  font: inherit;
+}
+
+.school-bg {
+  background:
+    radial-gradient(
+      circle at 90% 8%,
+      rgba(91, 184, 255, 0.24),
+      transparent 24%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.banner-school {
+  position: relative;
+  overflow: hidden;
+
+  min-height: 184px;
+
+  padding: 30px 36px;
+
+  border-radius: 20px;
+
+  background: linear-gradient(100deg, #cdeaff 0%, #eaf6ff 45%, #b9def6 100%);
+}
+
+.banner-school::before {
+  content: "";
+  position: absolute;
+  inset: auto -3% -40px 42%;
+  height: 150px;
+  background: linear-gradient(160deg, #fff 0 48%, #dce5ea 49% 63%, #fff 64%);
+  clip-path: polygon(20% 38%, 42% 5%, 74% 18%, 100% 100%, 0 100%);
+  opacity: 0.95;
+}
+.banner-school::after {
+  content: "";
+  position: absolute;
+  right: -3%;
+  bottom: -15px;
+  width: 55%;
+  height: 125px;
+  background:
+    radial-gradient(ellipse at center, #3d9650 0 20%, transparent 21%),
+    radial-gradient(ellipse at center, #4fa95c 0 20%, transparent 21%);
+  background-size:
+    100px 80px,
+    130px 100px;
+  background-position:
+    0 0,
+    50px 20px;
+  opacity: 0.65;
+}
+
+@media (max-width: 1024px) {
+  .desktop-sidebar {
+    width: 78px !important;
+  }
+  .desktop-sidebar .label,
+  .desktop-sidebar .brand-copy,
+  .desktop-sidebar .quote {
+    display: none;
+  }
+  .main-shell {
+    margin-left: 78px !important;
+  }
+}
+@media (max-width: 760px) {
+  .desktop-sidebar {
+    display: none !important;
+  }
+  .main-shell {
+    margin-left: 0 !important;
+  }
+}
+
+/* Mobile responsive behavior */
+.mobile-menu-button {
+  display: none;
+}
+.mobile-drawer {
+  will-change: transform;
+}
+
+@media (max-width: 760px) {
+  .mobile-menu-button {
+    display: grid;
+  }
+  .main-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .banner-school {
+    min-height: 150px;
+    border-radius: 16px;
+    padding: 22px 18px !important;
+  }
+  .banner-school::before {
+    left: 25%;
+    height: 105px;
+  }
+  .banner-school::after {
+    width: 62%;
+    height: 95px;
+    opacity: 0.5;
+  }
+  .banner-school > div {
+    max-width: 72% !important;
+  }
+  .banner-school .text-lg {
+    font-size: 15px;
+  }
+  .banner-school .text-4xl {
+    font-size: 28px;
+    line-height: 1.1;
+  }
+  .banner-school p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 420px) {
+  .banner-school > div {
+    max-width: 100% !important;
+  }
+  .banner-school {
+    min-height: 145px;
+  }
+  .banner-school .text-4xl {
+    font-size: 25px;
+  }
+}
+
+.desktop-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbdcf5 transparent;
+}
+.desktop-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.desktop-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.desktop-sidebar::-webkit-scrollbar-thumb {
+  background: #cbdcf5;
+  border-radius: 999px;
+}
+.desktop-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #a9c5eb;
+}
+
+/* =========================================
+   FOTO SEKOLAH - DASHBOARD BANNER
+   ========================================= */
+
+.banner-school-image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 65%;
+  height: 100%;
+
+  object-fit: cover;
+  object-position: center;
+
+  z-index: 0;
+
+  /* Foto melebur dari kiri ke kanan */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.08) 10%,
+    rgba(0, 0, 0, 0.25) 20%,
+    rgba(0, 0, 0, 0.5) 32%,
+    rgba(0, 0, 0, 0.8) 45%,
+    #000 60%
+  );
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.08) 10%,
+    rgba(0, 0, 0, 0.25) 20%,
+    rgba(0, 0, 0, 0.5) 32%,
+    rgba(0, 0, 0, 0.8) 45%,
+    #000 60%
+  );
+}
+
+.banner-school-overlay {
+  position: absolute;
+  inset: 0;
+
+  z-index: 1;
+  pointer-events: none;
+
+  background: linear-gradient(
+    90deg,
+    #cdeaff 0%,
+    #cdeaff 18%,
+    rgba(205, 234, 255, 0.96) 28%,
+    rgba(205, 234, 255, 0.8) 38%,
+    rgba(205, 234, 255, 0.5) 48%,
+    rgba(205, 234, 255, 0.2) 60%,
+    rgba(205, 234, 255, 0) 75%
+  );
+}
+
+@media (max-width: 760px) {
+  .banner-school-image {
+    width: 75%;
+    opacity: 0.8;
+  }
+
+  .banner-school-overlay {
+    background: linear-gradient(
+      90deg,
+      #cdeaff 0%,
+      rgba(205, 234, 255, 0.95) 35%,
+      rgba(205, 234, 255, 0.55) 60%,
+      rgba(205, 234, 255, 0.1) 100%
+    );
+  }
+}
+
+/* Gunakan foto sekolah sebagai visual utama, bukan ilustrasi dekoratif lama */
+.banner-school::before,
+.banner-school::after {
+  display: none;
+}
+
+/* ================================
+   DASHBOARD SCHOOL PHOTO BANNER
+   ================================ */
+
+.welcome-banner {
+  position: relative;
+  min-height: 220px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #d9efff;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 3;
+  width: 60%;
+  padding: 32px 40px;
+}
+
+.welcome-school-image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 68%;
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  z-index: 1;
+
+  /* Membuat foto melebur ke warna banner */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 10%,
+    rgba(0, 0, 0, 0.25) 22%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.85) 48%,
+    #000 62%
+  );
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 10%,
+    rgba(0, 0, 0, 0.25) 22%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.85) 48%,
+    #000 62%
+  );
+}
+
+/* Gradasi warna biru → foto */
+.welcome-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  z-index: 2;
+  pointer-events: none;
+
+  background: linear-gradient(
+    to right,
+    #d9efff 0%,
+    #d9efff 20%,
+    rgba(217, 239, 255, 0.96) 30%,
+    rgba(217, 239, 255, 0.78) 40%,
+    rgba(217, 239, 255, 0.45) 50%,
+    rgba(217, 239, 255, 0.15) 60%,
+    rgba(217, 239, 255, 0) 72%
+  );
+}
+
+@media (max-width: 768px) {
+  .welcome-content {
+    width: 100%;
+    padding: 28px;
+  }
+
+  .welcome-school-image {
+    width: 100%;
+    opacity: 0.35;
+  }
+
+  .welcome-banner::after {
+    background: linear-gradient(
+      to right,
+      #d9efff 0%,
+      rgba(217, 239, 255, 0.9) 45%,
+      rgba(217, 239, 255, 0.35) 100%
+    );
+  }
+}
+
+.welcome-school-image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 68%;
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  z-index: 1;
+
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 10%,
+    rgba(0, 0, 0, 0.25) 22%,
+    rgba(0, 0, 0, 0.55) 36%,
+    rgba(0, 0, 0, 0.85) 50%,
+    #000 65%
+  );
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 10%,
+    rgba(0, 0, 0, 0.25) 22%,
+    rgba(0, 0, 0, 0.55) 36%,
+    rgba(0, 0, 0, 0.85) 50%,
+    #000 65%
+  );
+}
+
+.welcome-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+
+  background: linear-gradient(
+    to right,
+    #d9efff 0%,
+    rgba(217, 239, 255, 0.98) 20%,
+    rgba(217, 239, 255, 0.85) 30%,
+    rgba(217, 239, 255, 0.55) 42%,
+    rgba(217, 239, 255, 0.2) 56%,
+    rgba(217, 239, 255, 0) 72%
+  );
+}
