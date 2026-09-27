@@ -6,7 +6,7 @@ export function Modal({ open, title, onClose, children, wide = false }) {
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#102A72]/30 p-4 backdrop-blur-sm touch-manipulation"
-      onMouseDown={(e) => {
+      onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose?.();
         }
@@ -135,8 +135,9 @@ export function PageHeader({ title, subtitle, button, onClick }) {
             backgroundColor: "#2563EB",
             color: "#FFFFFF",
             WebkitTapHighlightColor: "transparent",
+            touchAction: "manipulation",
           }}
-          className="relative z-10 touch-manipulation rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
+          className="relative z-[100] pointer-events-auto touch-manipulation select-none rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
         >
           ＋ {button}
         </button>

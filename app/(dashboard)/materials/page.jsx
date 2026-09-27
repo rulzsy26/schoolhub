@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   PageHeader,
   Modal,
@@ -17,6 +17,8 @@ export default function MaterialsPage() {
     [loading, setLoading] = useState(true),
     [notice, setNotice] = useState(""),
     [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submittingRef = useRef(false);
   const load = () => {
     setLoading(true);
     fetch("/api/materials")
@@ -52,18 +54,40 @@ export default function MaterialsPage() {
 
   const save = async (e) => {
     e.preventDefault();
-    const r = await fetch("/api/materials", {
+
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
+    setSaving(true);
+    setError("");
+    setNotice("");
+
+    const form = e.currentTarget;
+
+    try {
+      const r = await fetch("/api/materials", {
         method: "POST",
-        body: new FormData(e.currentTarget),
-      }),
-      d = await r.json();
-    if (!r.ok) {
-      return setError(d.error ? `${d.message}: ${d.error}` : d.message);
+        body: new FormData(form),
+      });
+
+      const d = await r.json();
+
+      if (!r.ok) {
+        throw new Error(d.error ? `${d.message}: ${d.error}` : d.message);
+      }
+
+      setOpen(false);
+      setNotice(d.message);
+
+      await load();
+    } catch (e) {
+      setError(e.message || "Gagal menambahkan materi");
+    } finally {
+      submittingRef.current = false;
+      setSaving(false);
     }
-    setOpen(false);
-    setNotice(d.message);
-    load();
   };
+
   const del = async (id) => {
     if (!confirm("Hapus materi ini?")) return;
     const r = await fetch(`/api/materials?id=${id}`, { method: "DELETE" }),
@@ -179,6 +203,7 @@ export default function MaterialsPage() {
             <FormActions
               onCancel={() => setOpen(false)}
               submit="Upload Materi"
+              loading={saving}
             />
           </form>
         </Modal>
