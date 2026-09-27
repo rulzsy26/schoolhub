@@ -86,8 +86,10 @@ export default function MaterialViewerPage() {
         <div>
           <button
             type="button"
-            onClick={() => router.back()}
-            className="mb-3 text-sm font-semibold text-[#2563EB]"
+            onClick={() =>
+              router.push(`/school/${params.schoolSlug}/materials`)
+            }
+            className="inline-flex items-center gap-2 text-sm font-bold text-[#246BFD] transition hover:text-[#1554D1]"
           >
             ← Kembali ke Materi
           </button>
