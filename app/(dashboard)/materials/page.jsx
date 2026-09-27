@@ -476,8 +476,8 @@ export default function MaterialsPage() {
 
                   <p className="mt-1">
                     Buka presentasi di Canva → klik
-                    <b> Bagikan / Share </b>→ salin link desain → tempelkan link
-                    tersebut di sini.
+                    <b> Bagikan / Share </b>→ Pilih embed → lalu klik embed 
+                    → pilih smart embed link → salin link tersebut kesini.
                   </p>
 
                   <p className="mt-1">
