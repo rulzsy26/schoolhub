@@ -248,28 +248,6 @@ export default function LoginPage() {
             >
               {loading ? "Memproses..." : "Masuk ke SchoolHub"}
             </button>
-
-            {/* DEMO ACCOUNT */}
-            <div className="mt-6 rounded-2xl border border-[#E2ECF8] bg-[#F5F9FF] p-4">
-              <div className="text-sm font-bold text-[#102A72]">Demo akun</div>
-
-              <div className="mt-2 space-y-1 text-sm text-[#53699F]">
-                <div>
-                  Guru: <b className="text-[#102A72]">yurla@schoolhub.test</b> /
-                  password123
-                </div>
-
-                <div>
-                  Siswa: <b className="text-[#102A72]">rafi@schoolhub.test</b> /
-                  password123
-                </div>
-              </div>
-
-              <div className="mt-3 border-t border-[#DDEAF8] pt-3 text-xs leading-5 text-[#7185AF]">
-                Satu akun siswa dapat digunakan untuk SMP dan SMA. Pilih jenjang
-                yang ingin dibuka.
-              </div>
-            </div>
           </form>
         </section>
       </div>
