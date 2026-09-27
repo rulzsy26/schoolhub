@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 export default function MaterialViewerPage() {
@@ -10,7 +11,21 @@ export default function MaterialViewerPage() {
   const [material, setMaterial] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const viewerRef = useRef(null);
 
+  const toggleFullscreen = async () => {
+    if (!viewerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await viewerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Fullscreen error:", err);
+    }
+  };
   useEffect(() => {
     if (!params?.id) return;
 
@@ -110,15 +125,28 @@ export default function MaterialViewerPage() {
       </div>
 
       {/* Viewer */}
-      <div className="overflow-hidden rounded-2xl border border-[#DFEAF7] bg-white shadow-soft">
+      <div
+        ref={viewerRef}
+        className="relative overflow-hidden rounded-2xl border border-[#DFEAF7] bg-white shadow-soft"
+      >
         {fileType === "PPT" || fileType === "PPTX" ? (
-          <iframe
-            src={viewerUrl}
-            title={material.file_name || "PowerPoint Viewer"}
-            className="h-[75vh] min-h-[600px] w-full"
-            frameBorder="0"
-            allowFullScreen
-          />
+          <>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="absolute right-3 top-3 z-10 rounded-xl bg-white/95 px-3 py-2 text-xs font-bold text-[#102A72] shadow-md backdrop-blur transition hover:bg-white"
+            >
+              ⛶ Fullscreen
+            </button>
+
+            <iframe
+              src={viewerUrl}
+              title={material.file_name || "PowerPoint Viewer"}
+              className="h-[75vh] min-h-[600px] w-full"
+              frameBorder="0"
+              allowFullScreen
+            />
+          </>
         ) : (
           <div className="p-8 text-center">
             <p className="text-sm text-[#7185AF]">File ini bukan PowerPoint.</p>
