@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import {
   PageHeader,
   Modal,
@@ -19,6 +20,7 @@ export default function MaterialsPage() {
     [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const submittingRef = useRef(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const load = () => {
     setLoading(true);
     fetch("/api/materials")
@@ -59,29 +61,101 @@ export default function MaterialsPage() {
 
     submittingRef.current = true;
     setSaving(true);
+    setUploadProgress(0);
     setError("");
     setNotice("");
 
     const form = e.currentTarget;
 
     try {
+      const judul = String(form.judul?.value || "").trim();
+      const deskripsi = String(form.deskripsi?.value || "").trim();
+      const class_id = Number(form.class_id?.value);
+
+      const fileInput = form.file;
+      const file = fileInput?.files?.[0] || null;
+
+      if (!judul || !class_id) {
+        throw new Error("Judul dan kelas wajib diisi");
+      }
+
+      let file_url = null;
+      let file_name = null;
+      let file_type = null;
+
+      // ==========================================
+      // 1. UPLOAD FILE LANGSUNG KE VERCEL BLOB
+      // ==========================================
+      if (file) {
+        setNotice("Mengupload file...");
+        setUploadProgress(1);
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+        const pathname = `materials/${Date.now()}-${safeName}`;
+
+        const blob = await upload(pathname, file, {
+          access: "public",
+
+          handleUploadUrl: "/api/materials/upload",
+
+          multipart: true,
+
+          onUploadProgress: ({ percentage }) => {
+            setUploadProgress(Math.round(percentage));
+          },
+        });
+
+        file_url = blob.url;
+        file_name = file.name;
+
+        const extension = file.name.split(".").pop()?.toUpperCase() || "FILE";
+
+        file_type = extension;
+
+        setUploadProgress(100);
+        setNotice("File berhasil diupload. Menyimpan materi...");
+      }
+
+      // ==========================================
+      // 2. SIMPAN METADATA KE MYSQL
+      // ==========================================
       const r = await fetch("/api/materials", {
         method: "POST",
-        body: new FormData(form),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          judul,
+          deskripsi,
+          class_id,
+          file_url,
+          file_name,
+          file_type,
+        }),
       });
 
       const d = await r.json();
 
       if (!r.ok) {
-        throw new Error(d.error ? `${d.message}: ${d.error}` : d.message);
+        throw new Error(
+          d.error
+            ? `${d.message}: ${d.error}`
+            : d.message || "Gagal menambahkan materi",
+        );
       }
 
       setOpen(false);
       setNotice(d.message);
+      setUploadProgress(0);
 
       await load();
     } catch (e) {
-      setError(e.message || "Gagal menambahkan materi");
+      console.error("SAVE MATERIAL ERROR:", e);
+
+      setError(e?.message || "Gagal menambahkan materi");
+
+      setUploadProgress(0);
     } finally {
       submittingRef.current = false;
       setSaving(false);
@@ -200,9 +274,26 @@ export default function MaterialsPage() {
               type="file"
               accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.mp4,.webm,.png,.jpg,.jpeg"
             />
+            {saving && uploadProgress > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                  <span>Progress upload</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                    style={{
+                      width: `${uploadProgress}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <FormActions
               onCancel={() => setOpen(false)}
-              submit="Upload Materi"
+              submit={saving ? "Mengupload..." : "Upload Materi"}
               loading={saving}
             />
           </form>

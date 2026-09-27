@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put, del } from "@vercel/blob";
+import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
@@ -165,17 +165,24 @@ export async function POST(request) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  let file_url = null;
+
   try {
     const schoolId = Number(
       request.cookies.get("schoolhub_school_id")?.value || 1,
     );
 
-    const form = await request.formData();
+    const body = await request.json();
 
-    const judul = String(form.get("judul") || "").trim();
-    const deskripsi = String(form.get("deskripsi") || "").trim();
-    const class_id = Number(form.get("class_id"));
-    const file = form.get("file");
+    const judul = String(body.judul || "").trim();
+    const deskripsi = String(body.deskripsi || "").trim();
+    const class_id = Number(body.class_id);
+
+    file_url = body.file_url ? String(body.file_url) : null;
+
+    const file_name = body.file_name ? String(body.file_name) : null;
+
+    const file_type = body.file_type ? String(body.file_type) : null;
 
     if (!judul || !class_id) {
       return NextResponse.json(
@@ -184,9 +191,6 @@ export async function POST(request) {
       );
     }
 
-    // =========================
-    // CEK KELAS GURU
-    // =========================
     const [owned] = await db.query(
       `
       SELECT c.id_class
@@ -207,44 +211,6 @@ export async function POST(request) {
       );
     }
 
-    let file_name = null;
-    let file_type = null;
-    let file_url = null;
-
-    // =========================
-    // UPLOAD FILE KE VERCEL BLOB
-    // =========================
-    if (file && typeof file.arrayBuffer === "function" && file.size > 0) {
-      // Maksimal 30 MB
-      if (file.size > 30 * 1024 * 1024) {
-        return NextResponse.json(
-          { message: "Ukuran file maksimal 30 MB" },
-          { status: 400 },
-        );
-      }
-
-      const originalName = String(file.name || "file");
-
-      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-      const uniqueName = `${Date.now()}-${safeName}`;
-
-      const blob = await put(`materials/${uniqueName}`, file, {
-        access: "public",
-        addRandomSuffix: false,
-        contentType: file.type || undefined,
-      });
-
-      file_name = originalName;
-
-      file_type = originalName.split(".").pop()?.toUpperCase() || "FILE";
-
-      file_url = blob.url;
-    }
-
-    // =========================
-    // SIMPAN DATA KE MYSQL
-    // =========================
     const [result] = await db.query(
       `
       INSERT INTO materials
@@ -280,6 +246,16 @@ export async function POST(request) {
     );
   } catch (e) {
     console.error("POST /api/materials ERROR:", e);
+
+    // Kalau DB gagal setelah file berhasil diupload,
+    // hapus file Blob supaya tidak menjadi file yatim.
+    if (file_url && file_url.includes(".public.blob.vercel-storage.com")) {
+      try {
+        await del(file_url);
+      } catch (blobError) {
+        console.error("Gagal membersihkan Blob:", blobError);
+      }
+    }
 
     return NextResponse.json(
       {
