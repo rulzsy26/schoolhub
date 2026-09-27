@@ -5,7 +5,7 @@ export function Modal({ open, title, onClose, children, wide = false }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#102A72]/30 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#102A72]/30 p-4 backdrop-blur-sm touch-manipulation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           onClose?.();
@@ -13,7 +13,7 @@ export function Modal({ open, title, onClose, children, wide = false }) {
       }}
     >
       <div
-        className={`max-h-[90vh] w-full ${
+        className={`relative max-h-[90dvh] w-full ${
           wide ? "max-w-3xl" : "max-w-lg"
         } overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6`}
       >
@@ -137,26 +137,13 @@ export function PageHeader({ title, subtitle, button, onClick }) {
           style={{
             backgroundColor: "#2563EB",
             color: "#FFFFFF",
+            WebkitTapHighlightColor: "transparent",
           }}
-          className="rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
+          className="relative z-10 touch-manipulation rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
         >
           ＋ {button}
         </button>
       )}
-    </div>
-  );
-}
-
-export function Notice({ text, error = false }) {
-  if (!text) return null;
-
-  return (
-    <div
-      className={`rounded-xl px-4 py-3 text-sm font-semibold ${
-        error ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"
-      }`}
-    >
-      {text}
     </div>
   );
 }

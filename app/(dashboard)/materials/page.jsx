@@ -31,11 +31,25 @@ export default function MaterialsPage() {
   };
   useEffect(() => {
     load();
-    fetch("/api/classes")
-      .then((r) => r.json())
-      .then((d) => setClasses(d.data || []))
-      .catch(() => {});
   }, []);
+
+  const openUploadModal = async () => {
+    setOpen(true);
+
+    try {
+      const r = await fetch("/api/classes");
+      const d = await r.json();
+
+      if (!r.ok) {
+        throw new Error(d.message || "Gagal mengambil daftar kelas");
+      }
+
+      setClasses(d.data || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const save = async (e) => {
     e.preventDefault();
     const r = await fetch("/api/materials", {
@@ -68,7 +82,7 @@ export default function MaterialsPage() {
             : "Akses materi pembelajaran dari guru."
         }
         button={role === "admin" ? "Upload Materi" : null}
-        onClick={() => setOpen(true)}
+        onClick={openUploadModal}
       />
       <Notice text={notice} />
       <Notice text={error} error />
