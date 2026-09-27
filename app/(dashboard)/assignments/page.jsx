@@ -1,5 +1,5 @@
 "use client";
-
+import OfficeViewer, { isOfficeFile } from "@/components/OfficeViewer";
 import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import {
@@ -25,7 +25,8 @@ export default function Assignments() {
   const [notice, setNotice] = useState("");
 
   const submittingRef = useRef(false);
-
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFile, setViewerFile] = useState(null);
   const load = async () => {
     setLoading(true);
     setError("");
@@ -587,14 +588,27 @@ export default function Assignments() {
                         {r.assignment_file_name || "File soal"}
                       </div>
 
-                      <a
-                        href={r.assignment_file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isOfficeFile(r.assignment_file_name)) {
+                            setViewerFile({
+                              url: r.assignment_file_url,
+                              name: r.assignment_file_name,
+                            });
+                            setViewerOpen(true);
+                          } else {
+                            window.open(
+                              r.assignment_file_url,
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                          }
+                        }}
                         className="mt-3 inline-flex rounded-xl bg-[#2563EB] px-4 py-2.5 text-xs font-bold text-white transition hover:opacity-90"
                       >
                         Buka File
-                      </a>
+                      </button>
                     </div>
                   )}
 
@@ -603,19 +617,13 @@ export default function Assignments() {
                       type="button"
                       onClick={() => {
                         setSelected(r);
+                        setOpen(true);
                         setError("");
                         setNotice("");
-                        setUploadProgress(0);
-                        setOpen(true);
                       }}
-                      style={{
-                        backgroundColor: "#2563EB",
-                        color: "#FFFFFF",
-                        border: "1px solid #2563EB",
-                      }}
-                      className="w-full rounded-xl px-4 py-3 text-sm font-bold shadow-md transition hover:opacity-90"
+                      className="w-full rounded-xl bg-[#102A72] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90"
                     >
-                      {r.status ? "Kumpulkan Ulang" : "Kumpulkan Tugas"}
+                      Kumpulkan Tugas
                     </button>
                   )}
                 </div>
@@ -683,6 +691,15 @@ export default function Assignments() {
           />
         </form>
       </Modal>
+      <OfficeViewer
+        open={viewerOpen}
+        onClose={() => {
+          setViewerOpen(false);
+          setViewerFile(null);
+        }}
+        fileUrl={viewerFile?.url}
+        fileName={viewerFile?.name}
+      />
     </div>
   );
 }
