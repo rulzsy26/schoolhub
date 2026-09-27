@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import fs from "fs/promises";
-import path from "path";
+import { del } from "@vercel/blob";
 
 /* =========================
    GET
@@ -168,26 +167,29 @@ export async function POST(request) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
+  let uploadedFileUrl = null;
+
   try {
     const schoolId = Number(
       request.cookies.get("schoolhub_school_id")?.value || 1,
     );
 
-    /*
-     * Gunakan FormData karena sekarang
-     * request dapat membawa file.
-     */
-    const form = await request.formData();
+    const body = await request.json();
 
-    const judul = String(form.get("judul") || "").trim();
-    const deskripsi = String(form.get("deskripsi") || "").trim();
-    const class_id = Number(form.get("class_id"));
-    const deadline = String(form.get("deadline") || "").trim();
+    const judul = String(body.judul || "").trim();
+    const deskripsi = String(body.deskripsi || "").trim();
+    const class_id = Number(body.class_id);
+    const deadline = String(body.deadline || "").trim();
 
-    /*
-     * File bersifat OPSIONAL.
-     */
-    const file = form.get("file");
+    const file_name = body.file_name ? String(body.file_name) : null;
+
+    const file_type = body.file_type
+      ? String(body.file_type).toUpperCase()
+      : null;
+
+    const file_url = body.file_url ? String(body.file_url) : null;
+
+    uploadedFileUrl = file_url;
 
     if (!judul || !class_id || !deadline) {
       return NextResponse.json(
@@ -198,10 +200,7 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * Pastikan kelas memang kelas yang diajar
-     * oleh guru pada sekolah aktif.
-     */
+    // Pastikan kelas memang kelas yang diajar guru
     const [owned] = await db.query(
       `
       SELECT c.id_class
@@ -224,113 +223,29 @@ export async function POST(request) {
       );
     }
 
-    /*
-     * Default:
-     * tidak ada lampiran.
-     */
-    let file_name = null;
-    let file_type = null;
-    let file_url = null;
-
-    /*
-     * Kalau guru memilih file,
-     * lakukan validasi dan upload.
-     */
-    if (file && typeof file.arrayBuffer === "function" && file.size > 0) {
-      /*
-       * Maksimal 15 MB
-       */
-      const MAX_FILE_SIZE = 15 * 1024 * 1024;
-
-      if (file.size > MAX_FILE_SIZE) {
-        return NextResponse.json(
-          {
-            message: "Ukuran file maksimal 15 MB",
-          },
-          { status: 400 },
-        );
-      }
-
-      /*
-       * Jenis file yang diperbolehkan.
-       */
-      const allowedExtensions = [
-        "pdf",
-        "doc",
-        "docx",
-        "ppt",
-        "pptx",
-        "xls",
-        "xlsx",
-        "txt",
-        "png",
-        "jpg",
-        "jpeg",
-      ];
-
-      const originalName = String(file.name || "file");
-
-      const extension = originalName.split(".").pop()?.toLowerCase() || "";
-
-      if (!allowedExtensions.includes(extension)) {
-        return NextResponse.json(
-          {
-            message:
-              "Jenis file tidak didukung. Gunakan PDF, Word, PowerPoint, Excel, TXT, PNG, atau JPG.",
-          },
-          { status: 400 },
-        );
-      }
-
-      /*
-       * Bersihkan nama file agar aman.
-       */
-      const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-      const uniqueName = `${Date.now()}-${safeName}`;
-
-      const uploadDir = path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "assignments",
+    // Jika ada file, pastikan URL berasal dari Vercel Blob
+    if (file_url && !file_url.includes(".public.blob.vercel-storage.com")) {
+      return NextResponse.json(
+        {
+          message: "URL lampiran tidak valid",
+        },
+        { status: 400 },
       );
-
-      await fs.mkdir(uploadDir, {
-        recursive: true,
-      });
-
-      const filePath = path.join(uploadDir, uniqueName);
-
-      await fs.writeFile(filePath, Buffer.from(await file.arrayBuffer()));
-
-      file_name = originalName;
-
-      /*
-       * Simpan extension saja,
-       * bukan MIME seperti application/pdf.
-       */
-      file_type = extension.toUpperCase();
-
-      file_url = `/uploads/assignments/${uniqueName}`;
     }
 
-    /*
-     * Simpan tugas ke database.
-     */
     const [r] = await db.query(
       `
       INSERT INTO assignments
-        (
-          teacher_id,
-          class_id,
-          judul,
-          deskripsi,
-          file_name,
-          file_type,
-          file_url,
-          deadline
-        )
+      (
+        teacher_id,
+        class_id,
+        judul,
+        deskripsi,
+        file_name,
+        file_type,
+        file_url,
+        deadline
+      )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
@@ -349,16 +264,30 @@ export async function POST(request) {
       {
         message: "Tugas berhasil dibuat",
         id_assignment: r.insertId,
+        file_url,
       },
       { status: 201 },
     );
   } catch (e) {
     console.error("CREATE ASSIGNMENT ERROR:", e);
 
+    // Kalau DB gagal setelah file berhasil diupload,
+    // hapus file Blob agar tidak menjadi file yatim.
+    if (
+      uploadedFileUrl &&
+      uploadedFileUrl.includes(".public.blob.vercel-storage.com")
+    ) {
+      try {
+        await del(uploadedFileUrl);
+      } catch (blobError) {
+        console.error("Gagal menghapus Blob:", blobError);
+      }
+    }
+
     return NextResponse.json(
       {
         message: "Gagal membuat tugas",
-        error: e.message,
+        error: e?.message || String(e),
       },
       { status: 500 },
     );
@@ -388,7 +317,9 @@ export async function DELETE(request) {
 
     const [r] = await db.query(
       `
-      SELECT a.id_assignment
+      SELECT
+  a.id_assignment,
+  a.file_url
       FROM assignments a
       JOIN classes c
         ON c.id_class = a.class_id
@@ -406,6 +337,17 @@ export async function DELETE(request) {
         },
         { status: 404 },
       );
+    }
+
+    if (
+      r[0]?.file_url &&
+      r[0].file_url.includes(".public.blob.vercel-storage.com")
+    ) {
+      try {
+        await del(r[0].file_url);
+      } catch (blobError) {
+        console.error("Gagal menghapus file Blob:", blobError);
+      }
     }
 
     await db.query("DELETE FROM assignments WHERE id_assignment = ?", [id]);

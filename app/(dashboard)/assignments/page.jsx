@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import {
   PageHeader,
   Modal,
@@ -19,8 +20,11 @@ export default function Assignments() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  const submittingRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -59,36 +63,122 @@ export default function Assignments() {
 
   const createAssignment = async (e) => {
     e.preventDefault();
+
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
+
     setSaving(true);
+    setUploadProgress(0);
     setError("");
     setNotice("");
 
+    const form = e.currentTarget;
+
     try {
-      const fd = new FormData(e.currentTarget);
-      const deadline = String(fd.get("deadline") || "").trim();
+      const judul = String(form.judul?.value || "").trim();
 
-      fd.set("judul", String(fd.get("judul") || "").trim());
-      fd.set("class_id", String(Number(fd.get("class_id"))));
-      fd.set("deskripsi", String(fd.get("deskripsi") || "").trim());
-      fd.set("deadline", deadline ? `${deadline.replace("T", " ")}:00` : "");
+      const class_id = Number(form.class_id?.value);
 
+      const deskripsi = String(form.deskripsi?.value || "").trim();
+
+      const deadline = String(form.deadline?.value || "").trim();
+
+      const fileInput = form.file;
+      const file = fileInput?.files?.[0] || null;
+
+      if (!judul || !class_id || !deadline) {
+        throw new Error("Judul, kelas, dan deadline wajib diisi");
+      }
+
+      let file_url = null;
+      let file_name = null;
+      let file_type = null;
+
+      // =====================================
+      // UPLOAD LAMPIRAN KE VERCEL BLOB
+      // =====================================
+      if (file) {
+        if (file.size > 15 * 1024 * 1024) {
+          throw new Error("Ukuran file maksimal 15 MB");
+        }
+
+        setNotice("Mengupload lampiran...");
+        setUploadProgress(1);
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+        const pathname = `assignments/${Date.now()}-${safeName}`;
+
+        const blob = await upload(pathname, file, {
+          access: "public",
+
+          handleUploadUrl: "/api/assignments/upload",
+
+          multipart: true,
+
+          onUploadProgress: ({ percentage }) => {
+            setUploadProgress(Math.round(percentage));
+          },
+        });
+
+        file_url = blob.url;
+        file_name = file.name;
+
+        file_type = file.name.split(".").pop()?.toUpperCase() || "FILE";
+
+        setUploadProgress(100);
+
+        setNotice("Lampiran berhasil diupload. Menyimpan tugas...");
+      }
+
+      // =====================================
+      // SIMPAN DATA TUGAS KE MYSQL
+      // =====================================
       const res = await fetch("/api/assignments", {
         method: "POST",
-        body: fd,
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          judul,
+          class_id,
+          deskripsi,
+          deadline: `${deadline.replace("T", " ")}:00`,
+
+          file_name,
+          file_type,
+          file_url,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Gagal membuat tugas");
+        throw new Error(
+          data.error
+            ? `${data.message}: ${data.error}`
+            : data.message || "Gagal membuat tugas",
+        );
       }
 
       setOpen(false);
+
       setNotice(data.message || "Tugas berhasil dibuat");
-      load();
+
+      setUploadProgress(0);
+
+      await load();
     } catch (e) {
-      setError(e.message);
+      console.error("CREATE ASSIGNMENT ERROR:", e);
+
+      setError(e?.message || "Gagal membuat tugas");
+
+      setUploadProgress(0);
     } finally {
+      submittingRef.current = false;
       setSaving(false);
     }
   };
@@ -283,6 +373,24 @@ export default function Assignments() {
               Opsional. Maksimal 15 MB. Format: PDF, Word, PowerPoint, Excel,
               TXT, PNG, atau JPG.
             </p>
+
+            {saving && uploadProgress > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-[#6176A8]">
+                  <span>Progress upload</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+
+                <div className="h-2 overflow-hidden rounded-full bg-[#EAF0F8]">
+                  <div
+                    className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                    style={{
+                      width: `${uploadProgress}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <Field
               label="Deadline"
