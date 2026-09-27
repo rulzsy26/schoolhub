@@ -3,6 +3,9 @@ import { del } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
+/* =========================
+   GET
+========================= */
 export async function GET(request) {
   const schoolId = Number(
     request.cookies.get("schoolhub_school_id")?.value || 1,
@@ -34,6 +37,7 @@ export async function GET(request) {
                 m.file_name,
                 m.file_type,
                 m.file_url,
+                m.canva_url,
                 m.created_at,
                 c.nama_kelas,
                 u.nama_lengkap AS guru
@@ -62,6 +66,7 @@ export async function GET(request) {
                 m.file_name,
                 m.file_type,
                 m.file_url,
+                m.canva_url,
                 m.created_at,
                 c.nama_kelas,
                 u.nama_lengkap AS guru
@@ -154,6 +159,9 @@ export async function GET(request) {
   }
 }
 
+/* =========================
+   POST
+========================= */
 export async function POST(request) {
   const session = await getSession();
 
@@ -178,11 +186,13 @@ export async function POST(request) {
     const deskripsi = String(body.deskripsi || "").trim();
     const class_id = Number(body.class_id);
 
-    file_url = body.file_url ? String(body.file_url) : null;
+    const file_url = body.file_url ? String(body.file_url).trim() : null;
 
-    const file_name = body.file_name ? String(body.file_name) : null;
+    const file_name = body.file_name ? String(body.file_name).trim() : null;
 
-    const file_type = body.file_type ? String(body.file_type) : null;
+    const file_type = body.file_type ? String(body.file_type).trim() : null;
+
+    const canva_url = body.canva_url ? String(body.canva_url).trim() : null;
 
     if (!judul || !class_id) {
       return NextResponse.json(
@@ -191,6 +201,42 @@ export async function POST(request) {
       );
     }
 
+    // Minimal salah satu harus tersedia:
+    // file atau Canva
+    if (!file_url && !canva_url) {
+      return NextResponse.json(
+        {
+          message: "File atau link Canva wajib diisi",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Kalau menggunakan Canva,
+    // pastikan URL memang berasal dari Canva.
+    if (canva_url) {
+      try {
+        const url = new URL(canva_url);
+
+        if (!url.hostname.endsWith("canva.com")) {
+          return NextResponse.json(
+            {
+              message: "Link Canva tidak valid",
+            },
+            { status: 400 },
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          {
+            message: "Link Canva tidak valid",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Pastikan kelas memang kelas yang diajar guru
     const [owned] = await db.query(
       `
       SELECT c.id_class
@@ -206,7 +252,9 @@ export async function POST(request) {
 
     if (!owned.length) {
       return NextResponse.json(
-        { message: "Kelas bukan kelas yang kamu ampu" },
+        {
+          message: "Kelas bukan kelas yang kamu ampu",
+        },
         { status: 403 },
       );
     }
@@ -221,9 +269,10 @@ export async function POST(request) {
         deskripsi,
         file_name,
         file_type,
-        file_url
+        file_url,
+        canva_url
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         session.id_user,
@@ -233,6 +282,7 @@ export async function POST(request) {
         file_name,
         file_type,
         file_url,
+        canva_url,
       ],
     );
 
@@ -241,14 +291,13 @@ export async function POST(request) {
         message: "Materi berhasil ditambahkan",
         id_material: result.insertId,
         file_url,
+        canva_url,
       },
       { status: 201 },
     );
   } catch (e) {
     console.error("POST /api/materials ERROR:", e);
 
-    // Kalau DB gagal setelah file berhasil diupload,
-    // hapus file Blob supaya tidak menjadi file yatim.
     if (file_url && file_url.includes(".public.blob.vercel-storage.com")) {
       try {
         await del(file_url);
@@ -267,6 +316,9 @@ export async function POST(request) {
   }
 }
 
+/* =========================
+   DELETE
+========================= */
 export async function DELETE(request) {
   const session = await getSession();
 
@@ -307,10 +359,11 @@ export async function DELETE(request) {
       );
     }
 
-    // =========================
-    // HAPUS FILE DARI VERCEL BLOB
-    // =========================
-    if (rows[0].file_url) {
+    // Hapus file dari Vercel Blob
+    if (
+      rows[0].file_url &&
+      rows[0].file_url.includes(".public.blob.vercel-storage.com")
+    ) {
       try {
         await del(rows[0].file_url);
       } catch (blobError) {
@@ -318,9 +371,6 @@ export async function DELETE(request) {
       }
     }
 
-    // =========================
-    // HAPUS DATA MYSQL
-    // =========================
     await db.query("DELETE FROM materials WHERE id_material = ?", [id]);
 
     return NextResponse.json({

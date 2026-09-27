@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 export default function MaterialViewerPage() {
@@ -15,6 +15,7 @@ export default function MaterialViewerPage() {
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
   };
+
   useEffect(() => {
     if (!params?.id) return;
 
@@ -61,7 +62,7 @@ export default function MaterialViewerPage() {
 
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => router.push(`/school/${params.schoolSlug}/materials`)}
           className="mt-4 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-bold text-white"
         >
           Kembali
@@ -72,12 +73,35 @@ export default function MaterialViewerPage() {
 
   const fileType = String(material.file_type || "").toUpperCase();
 
-  const viewerUrl =
-    fileType === "PPT" || fileType === "PPTX"
+  const hasCanva = Boolean(material.canva_url);
+
+  const isPowerPoint = fileType === "PPT" || fileType === "PPTX";
+
+  /*
+   * Canva Embed
+   *
+   * Jika guru memasukkan URL:
+   * https://www.canva.com/design/xxxxx/view
+   *
+   * kita tambahkan ?embed agar digunakan
+   * sebagai embedded presentation.
+   */
+  const canvaViewerUrl = material.canva_url
+    ? `${material.canva_url}${
+        material.canva_url.includes("?") ? "&" : "?"
+      }embed`
+    : "";
+
+  /*
+   * Office Online Viewer hanya digunakan
+   * untuk PPT/PPTX yang tidak menggunakan Canva.
+   */
+  const officeViewerUrl =
+    isPowerPoint && material.file_url
       ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
           material.file_url,
         )}`
-      : material.file_url;
+      : "";
 
   return (
     <div className="space-y-5">
@@ -94,16 +118,16 @@ export default function MaterialViewerPage() {
             ← Kembali ke Materi
           </button>
 
-          <h1 className="text-2xl font-extrabold text-[#102A72]">
+          <h1 className="mt-2 text-2xl font-extrabold text-[#102A72]">
             {material.judul}
           </h1>
 
           <p className="mt-1 text-sm text-[#7185AF]">
-            {material.file_name || "PowerPoint"}
+            {hasCanva ? "Presentasi Canva" : material.file_name || "Materi"}
           </p>
         </div>
 
-        {material.file_url && (
+        {material.file_url && !hasCanva && (
           <a
             href={material.file_url}
             target="_blank"
@@ -123,7 +147,10 @@ export default function MaterialViewerPage() {
             : "relative overflow-hidden rounded-2xl border border-[#DFEAF7] bg-white shadow-soft"
         }
       >
-        {fileType === "PPT" || fileType === "PPTX" ? (
+        {/* =========================
+            CANVA
+        ========================= */}
+        {hasCanva ? (
           <>
             <div className="absolute right-4 top-4 z-20">
               <button
@@ -136,7 +163,33 @@ export default function MaterialViewerPage() {
             </div>
 
             <iframe
-              src={viewerUrl}
+              src={canvaViewerUrl}
+              title={material.judul || "Canva Presentation"}
+              className={
+                isFullscreen
+                  ? "h-screen w-screen border-0"
+                  : "h-[75vh] min-h-[600px] w-full border-0"
+              }
+              allowFullScreen
+            />
+          </>
+        ) : isPowerPoint ? (
+          /* =========================
+             OFFICE ONLINE VIEWER
+          ========================= */
+          <>
+            <div className="absolute right-4 top-4 z-20">
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#102A72] shadow-lg transition hover:bg-gray-100"
+              >
+                {isFullscreen ? "✕ Keluar Fullscreen" : "⛶ Fullscreen"}
+              </button>
+            </div>
+
+            <iframe
+              src={officeViewerUrl}
               title={material.file_name || "PowerPoint Viewer"}
               className={
                 isFullscreen
@@ -148,8 +201,13 @@ export default function MaterialViewerPage() {
             />
           </>
         ) : (
+          /* =========================
+             FILE BIASA
+          ========================= */
           <div className="p-8 text-center">
-            <p className="text-sm text-[#7185AF]">File ini bukan PowerPoint.</p>
+            <p className="text-sm text-[#7185AF]">
+              File ini tidak memiliki viewer khusus.
+            </p>
 
             {material.file_url && (
               <a
