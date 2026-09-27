@@ -26,17 +26,11 @@ export async function POST(request) {
   const session = await getSession();
 
   if (!session) {
-    return NextResponse.json(
-      { message: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   if (session.role !== "admin") {
-    return NextResponse.json(
-      { message: "Forbidden" },
-      { status: 403 }
-    );
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -47,7 +41,10 @@ export async function POST(request) {
       request,
 
       onBeforeGenerateToken: async (pathname) => {
-        if (!pathname.startsWith("assignments/")) {
+        if (
+          !pathname.startsWith("assignments/") &&
+          !pathname.startsWith("submissions/")
+        ) {
           throw new Error("Path upload tidak valid");
         }
 
@@ -59,26 +56,20 @@ export async function POST(request) {
       },
 
       onUploadCompleted: async ({ blob }) => {
-        console.log(
-          "Assignment upload berhasil:",
-          blob.url
-        );
+        console.log("Assignment upload berhasil:", blob.url);
       },
     });
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error(
-      "POST /api/assignments/upload ERROR:",
-      error
-    );
+    console.error("POST /api/assignments/upload ERROR:", error);
 
     return NextResponse.json(
       {
         message: "Gagal upload lampiran",
         error: error?.message || String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

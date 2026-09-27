@@ -185,23 +185,97 @@ export default function Assignments() {
 
   const submit = async (e) => {
     e.preventDefault();
+
+    if (submittingRef.current) return;
+    if (!selected) return;
+
+    submittingRef.current = true;
+
+    setSaving(true);
+    setUploadProgress(0);
     setError("");
+    setNotice("");
 
-    const fd = new FormData(e.currentTarget);
-    fd.append("assignment_id", selected.id_assignment);
+    const form = e.currentTarget;
 
-    const r = await fetch("/api/submissions", {
-      method: "POST",
-      body: fd,
-    });
-    const d = await r.json();
+    try {
+      const fileInput = form.file;
+      const file = fileInput?.files?.[0] || null;
 
-    if (!r.ok) return setError(d.message);
+      const catatan = String(form.catatan?.value || "").trim();
 
-    setOpen(false);
-    setSelected(null);
-    setNotice(d.message);
-    load();
+      if (!file) {
+        throw new Error("File tugas wajib dilampirkan");
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error("Ukuran file maksimal 15 MB");
+      }
+
+      setNotice("Mengupload file tugas...");
+      setUploadProgress(1);
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      const pathname = `submissions/${Date.now()}-${selected.id_assignment}-${safeName}`;
+
+      const blob = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/assignments/upload",
+        multipart: true,
+
+        onUploadProgress: ({ percentage }) => {
+          setUploadProgress(Math.round(percentage));
+        },
+      });
+
+      setUploadProgress(100);
+
+      setNotice("File berhasil diupload. Menyimpan pengumpulan...");
+
+      const r = await fetch("/api/assignments", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          action: "submit",
+          assignment_id: selected.id_assignment,
+          file_name: file.name,
+          file_type: file.name.split(".").pop()?.toUpperCase() || "FILE",
+          file_url: blob.url,
+          catatan,
+        }),
+      });
+
+      const d = await r.json();
+
+      if (!r.ok) {
+        throw new Error(
+          d.error
+            ? `${d.message}: ${d.error}`
+            : d.message || "Gagal mengumpulkan tugas",
+        );
+      }
+
+      setOpen(false);
+      setSelected(null);
+      setNotice(d.message || "Tugas berhasil dikumpulkan");
+      setUploadProgress(0);
+
+      await load();
+    } catch (e) {
+      console.error("SUBMIT ASSIGNMENT ERROR:", e);
+
+      setError(e?.message || "Gagal mengumpulkan tugas");
+
+      setUploadProgress(0);
+    } finally {
+      submittingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const del = async (id) => {
@@ -502,9 +576,9 @@ export default function Assignments() {
                   </div>
                 )}
 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 space-y-3">
                   {r.assignment_file_url && (
-                    <div className="mb-3 w-full rounded-xl border border-[#DFEAF7] bg-[#F6F9FD] p-3">
+                    <div className="w-full rounded-xl border border-[#DFEAF7] bg-[#F6F9FD] p-3">
                       <div className="text-xs font-semibold text-[#7185AF]">
                         Lampiran Soal
                       </div>
@@ -530,6 +604,8 @@ export default function Assignments() {
                       onClick={() => {
                         setSelected(r);
                         setError("");
+                        setNotice("");
+                        setUploadProgress(0);
                         setOpen(true);
                       }}
                       style={{
@@ -537,7 +613,7 @@ export default function Assignments() {
                         color: "#FFFFFF",
                         border: "1px solid #2563EB",
                       }}
-                      className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold shadow-md hover:opacity-90"
+                      className="w-full rounded-xl px-4 py-3 text-sm font-bold shadow-md transition hover:opacity-90"
                     >
                       {r.status ? "Kumpulkan Ulang" : "Kumpulkan Tugas"}
                     </button>
@@ -583,10 +659,27 @@ export default function Assignments() {
           />
 
           <p className="text-xs text-[#7185AF]">Ukuran maksimal 15 MB.</p>
+          {saving && uploadProgress > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-[#6176A8]">
+                <span>Progress upload</span>
+                <span>{uploadProgress}%</span>
+              </div>
 
+              <div className="h-2 overflow-hidden rounded-full bg-[#EAF0F8]">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                  style={{
+                    width: `${uploadProgress}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <FormActions
             onCancel={() => setOpen(false)}
             submit="Kumpulkan Tugas"
+            loading={saving}
           />
         </form>
       </Modal>

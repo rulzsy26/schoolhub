@@ -163,6 +163,238 @@ export async function POST(request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
+  // =====================================================
+  // SISWA - KUMPULKAN TUGAS
+  // =====================================================
+
+  if (session.role === "user") {
+    let uploadedFileUrl = null;
+
+    try {
+      const schoolId = Number(
+        request.cookies.get("schoolhub_school_id")?.value || 1,
+      );
+
+      const body = await request.json();
+
+      const action = String(body.action || "");
+
+      if (action !== "submit") {
+        return NextResponse.json(
+          {
+            message: "Action tidak valid",
+          },
+          { status: 400 },
+        );
+      }
+
+      const assignment_id = Number(body.assignment_id);
+
+      const file_name = String(body.file_name || "").trim();
+
+      const file_type = String(body.file_type || "")
+        .trim()
+        .toUpperCase();
+
+      const file_url = String(body.file_url || "").trim();
+
+      const catatan = String(body.catatan || "").trim();
+
+      uploadedFileUrl = file_url;
+
+      if (!assignment_id || !file_name || !file_url) {
+        return NextResponse.json(
+          {
+            message: "Assignment dan file tugas wajib diisi",
+          },
+          { status: 400 },
+        );
+      }
+
+      // Pastikan URL benar-benar berasal dari Vercel Blob
+      if (!file_url.includes(".public.blob.vercel-storage.com")) {
+        return NextResponse.json(
+          {
+            message: "URL file tidak valid",
+          },
+          { status: 400 },
+        );
+      }
+
+      // =================================================
+      // CEK TUGAS + CEK SISWA MEMANG ADA DI KELAS
+      // =================================================
+
+      const [assignmentRows] = await db.query(
+        `
+        SELECT
+          a.id_assignment,
+          a.class_id,
+          a.deadline
+        FROM assignments a
+
+        JOIN classes c
+          ON c.id_class = a.class_id
+
+        JOIN student_classes sc
+          ON sc.class_id = a.class_id
+         AND sc.student_id = ?
+
+        WHERE a.id_assignment = ?
+          AND c.school_id = ?
+
+        LIMIT 1
+        `,
+        [session.id_user, assignment_id, schoolId],
+      );
+
+      if (!assignmentRows.length) {
+        return NextResponse.json(
+          {
+            message: "Tugas tidak ditemukan atau bukan tugas untuk kelas kamu",
+          },
+          { status: 404 },
+        );
+      }
+
+      const assignment = assignmentRows[0];
+
+      // =================================================
+      // TENTUKAN STATUS
+      // =================================================
+
+      const deadline = new Date(assignment.deadline);
+
+      const status = new Date() > deadline ? "late" : "submitted";
+
+      // =================================================
+      // CEK SUBMISSION LAMA
+      // =================================================
+
+      const [existingRows] = await db.query(
+        `
+        SELECT
+          id_submission,
+          file_url,
+          status
+        FROM submissions
+
+        WHERE assignment_id = ?
+          AND student_id = ?
+
+        LIMIT 1
+        `,
+        [assignment_id, session.id_user],
+      );
+
+      // =================================================
+      // UPDATE SUBMISSION
+      // =================================================
+
+      if (existingRows.length) {
+        const oldFileUrl = existingRows[0].file_url;
+
+        await db.query(
+          `
+          UPDATE submissions
+
+          SET
+            file_name = ?,
+            file_url = ?,
+            catatan = ?,
+            submitted_at = NOW(),
+            status = ?
+
+          WHERE id_submission = ?
+          `,
+          [file_name, file_url, catatan, status, existingRows[0].id_submission],
+        );
+
+        // Hapus file lama dari Blob
+        if (
+          oldFileUrl &&
+          oldFileUrl !== file_url &&
+          oldFileUrl.includes(".public.blob.vercel-storage.com")
+        ) {
+          try {
+            await del(oldFileUrl);
+          } catch (blobError) {
+            console.error("Gagal menghapus Blob lama:", blobError);
+          }
+        }
+
+        return NextResponse.json({
+          message:
+            status === "late"
+              ? "Tugas berhasil dikumpulkan, tetapi terlambat"
+              : "Tugas berhasil dikumpulkan ulang",
+          status,
+        });
+      }
+
+      // =================================================
+      // INSERT SUBMISSION BARU
+      // =================================================
+
+      const [result] = await db.query(
+        `
+        INSERT INTO submissions
+        (
+          assignment_id,
+          student_id,
+          file_name,
+          file_url,
+          catatan,
+          submitted_at,
+          status
+        )
+
+        VALUES (?, ?, ?, ?, ?, NOW(), ?)
+        `,
+        [assignment_id, session.id_user, file_name, file_url, catatan, status],
+      );
+
+      return NextResponse.json(
+        {
+          message:
+            status === "late"
+              ? "Tugas berhasil dikumpulkan, tetapi terlambat"
+              : "Tugas berhasil dikumpulkan",
+          id_submission: result.insertId,
+          status,
+        },
+        { status: 201 },
+      );
+    } catch (e) {
+      console.error("SUBMIT ASSIGNMENT ERROR:", e);
+
+      // Kalau DB gagal setelah upload Blob,
+      // hapus Blob agar tidak menjadi file yatim.
+      if (
+        uploadedFileUrl &&
+        uploadedFileUrl.includes(".public.blob.vercel-storage.com")
+      ) {
+        try {
+          await del(uploadedFileUrl);
+        } catch (blobError) {
+          console.error("Gagal menghapus Blob:", blobError);
+        }
+      }
+
+      return NextResponse.json(
+        {
+          message: "Gagal mengumpulkan tugas",
+          error: e?.message || String(e),
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  // =====================================================
+  // GURU / ADMIN - BUAT ASSIGNMENT
+  // =====================================================
+
   if (session.role !== "admin") {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
