@@ -1,18 +1,15 @@
-import { NextResponse } from 'next/server';
-import { clearSession } from '@/lib/auth';
+import { NextResponse } from "next/server";
 
 export async function POST(request) {
-  await clearSession();
+  const response = NextResponse.redirect(new URL("/login", request.url), 303);
 
-  const response = NextResponse.redirect(new URL('/login', request.url));
+  // Hapus cookie autentikasi
+  response.cookies.delete("token");
+  response.cookies.delete("session");
+  response.cookies.delete("schoolhub_session");
 
-  // Jenjang aktif harus dipilih ulang saat login berikutnya.
-  response.cookies.set('schoolhub_school_id', '', {
-    httpOnly: false,
-    expires: new Date(0),
-    path: '/',
-    sameSite: 'lax',
-  });
+  // Hapus cookie sekolah aktif
+  response.cookies.delete("schoolhub_school_id");
 
   return response;
 }
