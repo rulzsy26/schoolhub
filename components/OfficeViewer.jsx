@@ -19,7 +19,7 @@ export default function OfficeViewer({
   const viewerUrl = useMemo(() => {
     if (!fileUrl) return "";
 
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(
       fileUrl,
     )}`;
   }, [fileUrl]);
