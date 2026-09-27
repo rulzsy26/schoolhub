@@ -10,20 +10,10 @@ export default function MaterialViewerPage() {
   const [material, setMaterial] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const viewerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const toggleFullscreen = async () => {
-    if (!viewerRef.current) return;
-
-    try {
-      if (!document.fullscreenElement) {
-        await viewerRef.current.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.error("Fullscreen error:", err);
-    }
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => !prev);
   };
   useEffect(() => {
     if (!params?.id) return;
@@ -125,23 +115,32 @@ export default function MaterialViewerPage() {
 
       {/* Viewer */}
       <div
-        ref={viewerRef}
-        className="relative overflow-hidden rounded-2xl border border-[#DFEAF7] bg-white shadow-soft"
+        className={
+          isFullscreen
+            ? "fixed inset-0 z-[9999] bg-black"
+            : "relative overflow-hidden rounded-2xl border border-[#DFEAF7] bg-white shadow-soft"
+        }
       >
         {fileType === "PPT" || fileType === "PPTX" ? (
           <>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="absolute right-3 top-3 z-10 rounded-xl bg-white/95 px-3 py-2 text-xs font-bold text-[#102A72] shadow-md backdrop-blur transition hover:bg-white"
-            >
-              ⛶ Fullscreen
-            </button>
+            <div className="absolute right-4 top-4 z-20">
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#102A72] shadow-lg transition hover:bg-gray-100"
+              >
+                {isFullscreen ? "✕ Keluar Fullscreen" : "⛶ Fullscreen"}
+              </button>
+            </div>
 
             <iframe
               src={viewerUrl}
               title={material.file_name || "PowerPoint Viewer"}
-              className="h-[75vh] min-h-[600px] w-full"
+              className={
+                isFullscreen
+                  ? "h-screen w-screen border-0"
+                  : "h-[75vh] min-h-[600px] w-full border-0"
+              }
               frameBorder="0"
               allowFullScreen
             />
