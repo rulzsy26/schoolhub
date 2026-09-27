@@ -23,7 +23,7 @@ export function Modal({ open, title, onClose, children, wide = false }) {
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-full bg-[#F1F6FC] text-[#5570A5] hover:bg-[#E7F1FF]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#F1F6FC] text-[#5570A5] hover:bg-[#E7F1FF]"
           >
             ✕
           </button>
@@ -40,7 +40,6 @@ export function Field({ label, required = false, ...props }) {
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-[#243B78]">
         {label}
-
         {required && <span className="ml-1 text-red-500">*</span>}
       </span>
 
@@ -57,7 +56,6 @@ export function Textarea({ label, required = false, ...props }) {
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-[#243B78]">
         {label}
-
         {required && <span className="ml-1 text-red-500">*</span>}
       </span>
 
@@ -74,7 +72,6 @@ export function Select({ label, required = false, children, ...props }) {
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-[#243B78]">
         {label}
-
         {required && <span className="ml-1 text-red-500">*</span>}
       </span>
 
@@ -144,6 +141,24 @@ export function PageHeader({ title, subtitle, button, onClick }) {
           ＋ {button}
         </button>
       )}
+    </div>
+  );
+}
+
+/* =========================
+   NOTICE
+========================= */
+
+export function Notice({ text, error = false }) {
+  if (!text) return null;
+
+  return (
+    <div
+      className={`rounded-xl px-4 py-3 text-sm font-semibold ${
+        error ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"
+      }`}
+    >
+      {text}
     </div>
   );
 }
