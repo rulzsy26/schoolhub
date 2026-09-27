@@ -137,7 +137,7 @@ export function PageHeader({ title, subtitle, button, onClick }) {
             WebkitTapHighlightColor: "transparent",
             touchAction: "manipulation",
           }}
-          className="relative z-[100] pointer-events-auto touch-manipulation select-none rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
+          className="relative z-0 pointer-events-auto touch-manipulation select-none rounded-xl px-5 py-3 text-sm font-bold shadow-md transition hover:opacity-90 active:scale-[0.98]"
         >
           ＋ {button}
         </button>
