@@ -39,7 +39,9 @@ function Banner({ role, name, schoolId }) {
         <h1 className="text-4xl font-extrabold">{name}!</h1>
 
         <p>
-          Terima kasih telah mengajar dan menginspirasi generasi masa depan.
+          {role === "admin"
+            ? "Terima kasih telah mengajar dan menginspirasi generasi masa depan."
+            : "Semangat belajar dan raih prestasi terbaikmu!"}
         </p>
       </div>
     </div>
