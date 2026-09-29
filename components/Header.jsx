@@ -192,6 +192,16 @@ export default function Header({ role, onMenuClick }) {
     };
 
     loadUser();
+
+    const handleFocus = () => {
+      loadUser();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
   // =====================================================
@@ -629,7 +639,17 @@ export default function Header({ role, onMenuClick }) {
               className="flex shrink-0 items-center gap-2 rounded-xl p-1.5 transition hover:bg-[#F3F8FF]"
             >
               <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#E8F1FF]">
-                {/* avatar */}
+                {user?.foto ? (
+                  <img
+                    src={user.foto}
+                    alt={user.nama_lengkap || "Foto profil"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm font-extrabold text-[#5272B8]">
+                    {name?.charAt(0)?.toUpperCase() || "?"}
+                  </span>
+                )}
               </div>
 
               <div className="hidden min-w-0 text-left sm:block">

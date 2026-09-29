@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { put } from "@vercel/blob";
+import bcrypt from "bcryptjs";
 
 export async function GET(request) {
   try {
@@ -10,7 +12,49 @@ export async function GET(request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const schoolId = Number(request.cookies.get("schoolhub_school_id")?.value || 1);
+    const url = new URL(request.url);
+    const me = url.searchParams.get("me") === "1";
+
+    // ==========================================
+    // USER YANG SEDANG LOGIN
+    // Dipakai untuk Pengaturan Akun
+    // ==========================================
+    if (me) {
+      const [rows] = await db.query(
+        `
+        SELECT
+          u.id_user,
+          u.nama_lengkap,
+          u.username,
+          u.email,
+          u.jenis_kelamin,
+          u.foto,
+          u.role,
+          u.jenjang
+        FROM users u
+        WHERE u.id_user = ?
+        LIMIT 1
+        `,
+        [session.id_user],
+      );
+
+      if (!rows.length) {
+        return NextResponse.json(
+          { message: "Data akun tidak ditemukan." },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({
+        user: rows[0],
+        viewerRole: session.role,
+      });
+    }
+
+    const schoolId = Number(
+      request.cookies.get("schoolhub_school_id")?.value || 1,
+    );
+
     let rows = [];
 
     // ==========================================
@@ -136,9 +180,6 @@ export async function GET(request) {
 
     const user = rows[0];
 
-    // ==========================================
-    // RESPONSE
-    // ==========================================
     return NextResponse.json({
       user,
       viewerRole: session.role,
@@ -156,6 +197,152 @@ export async function GET(request) {
       {
         message:
           error?.sqlMessage || error?.message || "Gagal mengambil data profil.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+// =====================================================
+// PUT
+// UPDATE AKUN + FOTO PROFIL
+// =====================================================
+
+export async function PUT(request) {
+  try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const formData = await request.formData();
+
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "");
+    const file = formData.get("foto");
+
+    // ==========================================
+    // VALIDASI EMAIL
+    // ==========================================
+
+    if (!email) {
+      return NextResponse.json(
+        { message: "Email wajib diisi." },
+        { status: 400 },
+      );
+    }
+
+    // ==========================================
+    // CEK EMAIL DIPAKAI USER LAIN
+    // ==========================================
+
+    const [emailRows] = await db.query(
+      `
+      SELECT id_user
+      FROM users
+      WHERE email = ?
+        AND id_user <> ?
+      LIMIT 1
+      `,
+      [email, session.id_user],
+    );
+
+    if (emailRows.length) {
+      return NextResponse.json(
+        { message: "Email sudah digunakan akun lain." },
+        { status: 400 },
+      );
+    }
+
+    // ==========================================
+    // FOTO
+    // ==========================================
+
+    let fotoUrl = null;
+
+    if (file && typeof file !== "string" && file.size > 0) {
+      // Maksimal 5 MB
+      if (file.size > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          { message: "Ukuran foto maksimal 5 MB." },
+          { status: 400 },
+        );
+      }
+
+      // Hanya gambar
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json(
+          { message: "File yang dipilih harus berupa gambar." },
+          { status: 400 },
+        );
+      }
+
+      const extension = file.name?.split(".").pop()?.toLowerCase() || "jpg";
+
+      const blob = await put(
+        `profiles/${session.id_user}-${Date.now()}.${extension}`,
+        file,
+        {
+          access: "public",
+          addRandomSuffix: true,
+        },
+      );
+
+      fotoUrl = blob.url;
+    }
+
+    // ==========================================
+    // UPDATE DATABASE
+    // ==========================================
+
+    const updates = ["email = ?"];
+    const values = [email];
+
+    // Update foto kalau user upload foto baru
+    if (fotoUrl) {
+      updates.push("foto = ?");
+      values.push(fotoUrl);
+    }
+
+    // Update password kalau diisi
+    if (password) {
+      if (password.length < 6) {
+        return NextResponse.json(
+          { message: "Password minimal 6 karakter." },
+          { status: 400 },
+        );
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      updates.push("password = ?");
+      values.push(hashedPassword);
+    }
+
+    values.push(session.id_user);
+
+    await db.query(
+      `
+      UPDATE users
+      SET ${updates.join(", ")}
+      WHERE id_user = ?
+      `,
+      values,
+    );
+
+    return NextResponse.json({
+      message: fotoUrl
+        ? "Pengaturan akun dan foto profil berhasil diperbarui."
+        : "Pengaturan akun berhasil diperbarui.",
+      foto: fotoUrl,
+    });
+  } catch (error) {
+    console.error("UPDATE PROFILE ERROR:", error);
+
+    return NextResponse.json(
+      {
+        message: error?.message || "Gagal memperbarui pengaturan akun.",
       },
       { status: 500 },
     );
