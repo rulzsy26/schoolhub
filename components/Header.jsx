@@ -473,7 +473,7 @@ export default function Header({ role, onMenuClick }) {
   // =====================================================
 
   const name =
-    user?.nama_lengkap || (role === "admin" ? "Budi Santoso" : "Rafi Ahmad");
+    user?.nama_lengkap || (role === "admin" ? "Yurni Latifah" : "Rafi Ahmad");
 
   const subtitle = role === "admin" ? "Guru IPS" : "Siswa";
 
