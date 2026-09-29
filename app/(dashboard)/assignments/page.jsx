@@ -380,7 +380,28 @@ export default function Assignments() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
+                  {r.file_url && (
+                    <div className="mt-4 rounded-xl border border-[#DFEAF7] bg-[#F6F9FD] p-3">
+                      <div className="text-xs font-semibold text-[#7185AF]">
+                        Lampiran Soal
+                      </div>
+
+                      <div className="mt-1 truncate text-sm font-bold text-[#102A72]">
+                        {r.file_name || "File soal"}
+                      </div>
+
+                      <a
+                        href={r.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1D4ED8]"
+                      >
+                        📎 Buka File
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex gap-2">
                     <button
                       type="button"
                       onClick={() => del(r.id_assignment)}
